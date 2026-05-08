@@ -1,6 +1,7 @@
 import { getPdfBlob } from './services/sessionStore';
 import { createChannel } from './services/syncService';
-import { pageForRole } from './services/spreadService';
+import { loadPdfFromBuffer } from './services/pdfService';
+import { maxSpread, pageForRole } from './services/spreadService';
 import type { ReadingState } from './types/state';
 
 const params = new URLSearchParams(window.location.search);
@@ -18,21 +19,23 @@ const sourceWindowId = crypto.randomUUID();
 const channel = createChannel(sessionId);
 let state: ReadingState | null = null;
 let pdfDoc: any;
+let renderTask: any;
+let renderToken = 0;
 
 async function ensureDoc() {
   if (pdfDoc) return pdfDoc;
   const blob = await getPdfBlob(sessionId);
   const buffer = await blob.arrayBuffer();
-  const pdfjs = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.min.mjs');
-  const task = pdfjs.getDocument({ data: buffer });
-  pdfDoc = await task.promise;
+  pdfDoc = await loadPdfFromBuffer(buffer);
   return pdfDoc;
 }
 
 async function render() {
   if (!state) return;
-  const pageNumber = pageForRole(state.spreadIndex, role, state.spreadMode);
+  const token = ++renderToken;
+  const pageNumber = pageForRole(state.spreadIndex, role, state.spreadMode, state.pageOffset);
   if (!pageNumber || pageNumber < 1 || pageNumber > state.pageCount) {
+    renderTask?.cancel();
     canvas.classList.add('hidden');
     blank.classList.remove('hidden');
     pageLabel.textContent = 'Blank';
@@ -43,10 +46,12 @@ async function render() {
   pageLabel.textContent = `Page ${pageNumber}`;
 
   const doc = await ensureDoc();
+  if (token !== renderToken) return;
   const page = await doc.getPage(pageNumber);
+  if (token !== renderToken) return;
   const viewport = page.getViewport({ scale: 1 });
-  const scale = Math.min(window.innerWidth / viewport.width, window.innerHeight / viewport.height);
-  const fitted = page.getViewport({ scale });
+  const fitScale = Math.min(window.innerWidth / viewport.width, window.innerHeight / viewport.height);
+  const fitted = page.getViewport({ scale: fitScale * state.zoom, rotation: state.rotation });
 
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.floor(fitted.width * dpr);
@@ -55,7 +60,24 @@ async function render() {
   canvas.style.height = `${Math.floor(fitted.height)}px`;
   const ctx = canvas.getContext('2d')!;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  await page.render({ canvasContext: ctx, viewport: fitted }).promise;
+  renderTask?.cancel();
+  renderTask = page.render({ canvasContext: ctx, viewport: fitted });
+  try {
+    await renderTask.promise;
+  } catch (error) {
+    if (!(error instanceof Error) || error.name !== 'RenderingCancelledException') throw error;
+  }
+}
+
+function navigate(delta: number) {
+  if (!state) return;
+  const lastSpread = maxSpread(state.pageCount, state.spreadMode, state.pageOffset);
+  const spreadIndex = Math.min(Math.max(0, state.spreadIndex + delta), lastSpread);
+  if (spreadIndex === state.spreadIndex) return;
+
+  state = { ...state, spreadIndex, updatedAt: Date.now() };
+  channel.postMessage({ type: 'STATE_UPDATE', sourceWindowId, state });
+  void render();
 }
 
 channel.onmessage = (event) => {
@@ -63,17 +85,19 @@ channel.onmessage = (event) => {
   if (msg?.sourceWindowId === sourceWindowId) return;
   if (msg?.type === 'STATE_UPDATE') {
     state = msg.state;
-    render();
+    void render();
   }
 };
 
 window.addEventListener('keydown', (event) => {
   if (!state) return;
   if (event.key === 'ArrowRight') {
-    channel.postMessage({ type: 'STATE_UPDATE', sourceWindowId, state: { ...state, spreadIndex: state.spreadIndex + 1, updatedAt: Date.now() } });
+    event.preventDefault();
+    navigate(1);
   }
   if (event.key === 'ArrowLeft') {
-    channel.postMessage({ type: 'STATE_UPDATE', sourceWindowId, state: { ...state, spreadIndex: Math.max(0, state.spreadIndex - 1), updatedAt: Date.now() } });
+    event.preventDefault();
+    navigate(-1);
   }
 });
 

@@ -6,10 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "playwright": "^1.59.1",
     "typescript": "^5.9.3",
     "vite": "^7.1.0"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.5.136"
   }
 }

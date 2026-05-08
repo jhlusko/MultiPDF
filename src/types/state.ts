@@ -5,5 +5,8 @@ export interface ReadingState {
   pageCount: number;
   spreadIndex: number;
   spreadMode: SpreadMode;
+  pageOffset: number;
+  zoom: number;
+  rotation: number;
   updatedAt: number;
 }

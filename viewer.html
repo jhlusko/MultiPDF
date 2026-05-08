@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dual PDF Viewer</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/src/styles/base.css" />
   </head>
   <body>
@@ -11,8 +12,10 @@
       <span id="roleBadge"></span>
       <span id="pageLabel"></span>
     </div>
-    <div id="blank" class="blank hidden">Blank side</div>
-    <canvas id="canvas"></canvas>
+    <main class="viewer-stage">
+      <div id="blank" class="blank hidden">Blank side</div>
+      <canvas id="canvas"></canvas>
+    </main>
     <script type="module" src="/src/viewer.ts"></script>
   </body>
 </html>
