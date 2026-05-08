@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dual PDF Controller</title>
+    <link rel="stylesheet" href="/src/styles/base.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <h1>Dual-window PDF Reader</h1>
+      <input id="fileInput" type="file" accept="application/pdf" />
+      <div class="row">
+        <button id="openDual" disabled>Open dual-window mode</button>
+      </div>
+      <div class="row">
+        <label>Spread mode
+          <select id="spreadMode">
+            <option value="cover">Cover mode</option>
+            <option value="no-cover">No-cover mode</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="prev" disabled>Previous spread</button>
+        <button id="next" disabled>Next spread</button>
+      </div>
+      <pre id="status"></pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
